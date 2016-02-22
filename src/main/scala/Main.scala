@@ -5,7 +5,7 @@ import org.apache.spark.{SparkConf, SparkContext}
  */
 object Main {
   def main(args: Array[String]) {
-    val dataPath = "dataset/data"
+    val dataPath = "src/main/resources/chap02/hdfs/linkage"
     val sparkConf = new SparkConf().setAppName("Hello world")
     val sc = new SparkContext(sparkConf)
 
