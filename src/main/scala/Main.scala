@@ -1,53 +1,35 @@
 import com.github.tototoshi.csv.CSVParser
+import gs.spark.util.{SparkConfigParser, Utils}
 import org.apache.spark.{SparkConf, SparkContext}
-import org.joda.time.Duration
-import org.joda.time.format.{PeriodFormatter, PeriodFormatterBuilder, PeriodFormat}
 
 object Main {
   def main(args: Array[String]) {
-    time { () =>
-      val dataPath = "src/main/resources/chap02/hdfs/linkage"
+    Utils.time { () =>
       val sparkConf = new SparkConf().setAppName("Data linkage")
+
+      val conf = SparkConfigParser.parse(sparkConf)
       val sc = new SparkContext(sparkConf)
 
-      val rawBlocks = sc.textFile(dataPath + "/block_1.csv", 10)
-//            .take(10)
+      var rawBlocks = sc.textFile(conf.input, conf.partitions)
+      if (conf.debug) {
+        rawBlocks = rawBlocks.sample(false, conf.sampleFraction)
+      }
 
-      val noheader = rawBlocks
+      val content = rawBlocks
         .filter(isNotHeader)
 
-      val parsed = noheader
+      val parsed = content
         .flatMap(parse)
 
       val result = parsed
         .groupBy(md => md.matched)
         .mapValues(x => x.size)
 
-      result
-        .foreach(println)
+      if (conf.debug)
+        result.foreach(println)
+      else
+        result.saveAsTextFile(conf.output)
     }
-  }
-
-  def time(execution: () => Unit): Unit = {
-    val start = System.currentTimeMillis()
-
-    execution()
-
-    val end = System.currentTimeMillis()
-
-    val duration = new Duration(end - start)
-    val formatter = new PeriodFormatterBuilder()
-      .appendDays()
-      .appendSuffix("d")
-      .appendHours()
-      .appendSuffix("h")
-      .appendMinutes()
-      .appendSuffix("m")
-      .appendSeconds()
-      .appendSuffix("s")
-      .toFormatter()
-    val formatted = formatter.print(duration.toPeriod())
-    println(s"Execution time: $formatted")
   }
 
   def parse(line: String): Option[MatchData] = {
